@@ -14,7 +14,8 @@ defmodule NxFixed.Block do
         not meant for hardware dataflow, `fun.(input, state)`.
     * `:fun` - the function above; `:params` - its constant tensor
       arguments; `:opts` - its trailing keyword options.
-    * `:init` - the initial state (`nil` for stateless blocks).
+    * `:init` - the initial state; `nil` for stateless blocks, whose
+      stream kernels then get a `u8` zero as state and return it.
     * `:rate` - `{in, out}`: every `in` input items give `out` output
       items (`{1, 1}` sample by sample, `{4, 1}` decimation by 4, `{188, 204}`
       an RS(204, 188) encoder on bytes).
@@ -88,6 +89,12 @@ defmodule NxFixed.Block do
   def run(block, input, state \\ :init, opts \\ [])
 
   def run(%__MODULE__{} = b, input, :init, opts), do: run(b, input, b.init, opts)
+
+  # Stateless stream kernels still take and return a state: a u8 zero.
+  def run(%__MODULE__{kind: :stream} = b, input, nil, opts) do
+    {output, _} = run(b, input, Nx.tensor(0, type: :u8), opts)
+    {output, nil}
+  end
 
   def run(%__MODULE__{kind: :stream} = b, input, state, opts),
     do: NxFixed.run_scan_stacked(b.fun, input, state, b.params, [kernel_opts: b.opts] ++ opts)

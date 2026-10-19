@@ -30,6 +30,14 @@ defmodule NxFixed.BlockTest do
     assert Nx.to_list(Nx.concatenate([a, c])) == Nx.to_list(all)
   end
 
+  defn double(x, state, _opts \\ []), do: {Nx.as_type(x, :s32) * 2, state}
+
+  test "stateless stream blocks run without a state" do
+    b = %Block{name: :double, kind: :stream, fun: &double/3}
+    {y, nil} = Block.run(b, Nx.tensor([1, -2], type: :s16), :init, compiler: Nx.Defn.Evaluator)
+    assert Nx.to_list(y) == [2, -4]
+  end
+
   test "frame blocks declare their rate" do
     b = %Block{name: :pairs, kind: :frame, fun: &pair_sums/3, rate: {2, 1}}
     {y, _} = Block.run(b, Nx.tensor([1, 2, 3, 4]), Nx.tensor(0))
