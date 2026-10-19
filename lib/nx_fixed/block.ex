@@ -22,7 +22,8 @@ defmodule NxFixed.Block do
       on the input (filter group delay, interleaver delay); `:warmup` -
       input items after which the output no longer depends on `:init`
       (needed to start a copy of the block mid-stream, e.g. Viterbi chunks
-      decoded in parallel).
+      decoded in parallel), or `:unbounded` when the state can remember
+      the start indefinitely (hysteresis, a PLL without lock guarantee).
     * `:item` - `{in_type, out_type}`, e.g. `{:complex, :complex}`,
       `{:bit, :symbol}`, `{:byte, :byte}`, `{:real, :real}`.
     * `:hardware` - which hardware structure it needs:
@@ -70,7 +71,7 @@ defmodule NxFixed.Block do
           opts: keyword,
           rate: {pos_integer, pos_integer},
           latency: non_neg_integer,
-          warmup: non_neg_integer,
+          warmup: non_neg_integer | :unbounded,
           item: {atom, atom},
           hardware: hardware
         }
