@@ -173,6 +173,14 @@ defmodule NxFixed.WidthCheckTest do
       assert {:ok, _} = DSP.analyze(&masked_table/1, [t(:u8)])
     end
 
+    defn gather(x, i), do: Nx.take(Nx.multiply(Nx.as_type(x, :s32), 3), Nx.bitwise_and(i, 7))
+
+    test "take from a computed table has the table's range" do
+      assert {:ok, graph} = DSP.analyze(&gather/2, [t(:s16, {8}), t(:u8)])
+      [out] = for {_, %{op: :take} = n} <- graph.nodes, do: n
+      assert IntSet.bounds(out.range) == {-3 * 32768, 3 * 32767}
+    end
+
     test "narrowing as_type that would wrap" do
       assert {:error, e} = DSP.analyze(&narrow/1, [t(:s16)])
       assert [%{kind: :narrowing}] = e.violations

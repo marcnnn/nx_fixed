@@ -203,20 +203,29 @@ defmodule NxFixed.WidthCheck do
     end
   end
 
-  # Exact lookup for small index sets; the whole table otherwise.
+  # Constant tables: exact lookup for small index sets, the whole table
+  # otherwise. Computed tables (gathers from data): the table's range.
   defp transfer(%{op: :take, inputs: [table_id, _]}, [table, idx], graph, _) do
-    values = graph.nodes[table_id].attrs |> Nx.to_flat_list() |> List.to_tuple()
-    size = tuple_size(values)
-    idx = IntSet.intersection(idx, IntSet.range(0, size - 1))
+    case Dataflow.constant_tensor(graph, table_id) do
+      %Nx.Tensor{} = t ->
+        # The index selects rows (axis 0); a row may hold several values.
+        values = t |> Nx.to_flat_list() |> List.to_tuple()
+        rows = Nx.axis_size(t, 0)
+        row = div(tuple_size(values), rows)
+        idx = IntSet.intersection(idx, IntSet.range(0, rows - 1))
 
-    if IntSet.size(idx) <= 4096,
-      do:
-        idx
-        |> IntSet.to_list()
-        |> Enum.map(&elem(values, &1))
-        |> IntSet.from_list()
-        |> IntSet.widen(),
-      else: table
+        if IntSet.size(idx) * row <= 4096,
+          do:
+            idx
+            |> IntSet.to_list()
+            |> Enum.flat_map(fn i -> for j <- 0..(row - 1), do: elem(values, i * row + j) end)
+            |> IntSet.from_list()
+            |> IntSet.widen(),
+          else: table
+
+      nil ->
+        table
+    end
   end
 
   # One coefficient vector per output (the constant's free indices), each
