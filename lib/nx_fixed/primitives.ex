@@ -16,14 +16,15 @@ defmodule NxFixed.Primitives do
   """
   deftransform wrap(x, type) do
     {kind, bits} = type = Nx.Type.normalize!(type)
-    mask = (1 <<< bits) - 1
+    # Constants in x's type: a bare 2^31 would be an s32 literal.
+    mask = scalar((1 <<< bits) - 1, x)
 
     case kind do
       :u ->
         x |> Nx.bitwise_and(mask) |> Nx.as_type(type)
 
       :s ->
-        half = 1 <<< (bits - 1)
+        half = scalar(1 <<< (bits - 1), x)
         x |> Nx.add(half) |> Nx.bitwise_and(mask) |> Nx.subtract(half) |> Nx.as_type(type)
     end
   end
@@ -49,8 +50,12 @@ defmodule NxFixed.Primitives do
   `x` needs one bit of headroom, which `NxFixed.WidthCheck` verifies.
   """
   deftransform shift_round(x, k) when is_integer(k) and k > 0 do
-    x |> Nx.add(1 <<< (k - 1)) |> Nx.right_shift(k)
+    x |> Nx.add(scalar(1 <<< (k - 1), x)) |> Nx.right_shift(k)
   end
+
+  @doc false
+  # An integer constant in the type of `x`.
+  def scalar(value, x), do: Nx.tensor(value, type: Nx.type(x))
 
   @doc "Saturates to s16."
   deftransform saturate_s16(x), do: saturate(x, :s16)

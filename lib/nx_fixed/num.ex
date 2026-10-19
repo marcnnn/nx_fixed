@@ -53,7 +53,7 @@ defmodule NxFixed.Num do
   Options: `rounding: :nearest | :truncate` (default `:nearest`),
   `lut_bits:` sine table address bits (default 10).
   """
-  def q(bits, frac, opts \\ []) when bits in 2..32 and frac >= 0 and frac < bits,
+  def q(bits, frac, opts \\ []) when bits in 2..63 and frac >= 0 and frac < bits,
     do: struct!(Format, [kind: :fixed, bits: bits, frac: frac] ++ opts)
 
   # -- host side: building inputs and reading results --------------------------------
@@ -135,6 +135,12 @@ defmodule NxFixed.Num do
   @doc "Complex times real."
   deftransform cscale({re, im}, g), do: {mul(re, g), mul(im, g)}
 
+  @doc "Complex sum (exact)."
+  deftransform cadd({ar, ai}, {br, bi}), do: {add(ar, br), add(ai, bi)}
+
+  @doc "Complex difference (exact)."
+  deftransform csub({ar, ai}, {br, bi}), do: {sub(ar, br), sub(ai, bi)}
+
   @doc """
   Moves the binary point to the format's `frac` (rounding per format),
   keeping the container. Identity for float.
@@ -152,7 +158,8 @@ defmodule NxFixed.Num do
   deftransform quantize(%Fixed{} = x, %Format{kind: :fixed} = f) do
     %Fixed{t: t} = to_frac(x, f.frac, f.rounding)
     {lo, hi} = range(f.bits)
-    %Fixed{t: t |> Nx.clip(lo, hi) |> Nx.as_type(container(f.bits)), frac: f.frac}
+    t = Nx.clip(t, P.scalar(lo, t), P.scalar(hi, t))
+    %Fixed{t: Nx.as_type(t, container(f.bits)), frac: f.frac}
   end
 
   deftransform quantize(x, %Format{kind: :float}), do: Nx.as_type(x, :f32)

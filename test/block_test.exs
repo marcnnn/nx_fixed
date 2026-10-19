@@ -44,4 +44,28 @@ defmodule NxFixed.BlockTest do
     assert Nx.to_list(y) == [3, 7]
     assert Block.output_items(b, 4) == 2
   end
+
+  # Upsampling by 3/2 with a phase counter: 1 or 2 outputs per input.
+  defn three_halves(x, phase, _opts \\ []) do
+    count = Nx.select(phase == 1, 2, 1) |> Nx.as_type(:u8)
+    {{Nx.stack([x, x]), count}, Nx.as_type(Nx.select(phase == 1, 0, 1), :u8)}
+  end
+
+  test "variable-rate blocks return only the valid items, split anywhere" do
+    b = %Block{
+      name: :up,
+      kind: :stream,
+      fun: &three_halves/3,
+      init: Nx.tensor(0, type: :u8),
+      rate: {:variable, 2}
+    }
+
+    x = Nx.tensor([1, 2, 3, 4], type: :s16)
+    {y, s} = Block.run(b, x, :init, compiler: Nx.Defn.Evaluator)
+    assert Nx.to_list(y) == [1, 2, 2, 3, 4, 4]
+    {a, s1} = Block.run(b, x[0..0], :init, compiler: Nx.Defn.Evaluator)
+    {c, ^s} = Block.run(b, x[1..3], s1, compiler: Nx.Defn.Evaluator)
+    assert Nx.to_list(a) ++ Nx.to_list(c) == Nx.to_list(y)
+    assert Block.compact(Nx.tensor([[1, 2]]), Nx.tensor([0])) == nil
+  end
 end

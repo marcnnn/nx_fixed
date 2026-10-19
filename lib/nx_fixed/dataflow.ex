@@ -141,6 +141,13 @@ defmodule NxFixed.Dataflow do
     add(state, key, :concatenate, ids, axis, t)
   end
 
+  # stack = a new axis on each input, then concatenate (views only).
+  defp convert_op(:stack, [tensors, axis], _t, key, state) do
+    expr = tensors |> Enum.map(&Nx.new_axis(&1, axis)) |> Nx.concatenate(axis: axis)
+    {id, state} = convert(expr, state)
+    {id, put_in(state.memo[key], id)}
+  end
+
   defp convert_op(:slice, [x, starts, lengths, strides], t, key, state) do
     unless Enum.all?(starts, &is_integer/1),
       do: raise(ArgumentError, "NxFixed supports Nx.slice only with constant start indices")
