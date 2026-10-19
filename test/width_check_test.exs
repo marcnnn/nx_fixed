@@ -1,12 +1,12 @@
-defmodule ExHdl.DSPWidthCheckTest do
+defmodule NxFixed.WidthCheckTest do
   use ExUnit.Case, async: true
   use ExUnitProperties
   import Bitwise
 
-  alias ExHdl.DSP
-  alias ExHdl.DSP.Primitives
-  alias ExHdl.Types.IntSet
-  alias ExHdl.Test.DSP, as: K
+  alias NxFixed, as: DSP
+  alias NxFixed.Primitives
+  alias NxFixed.IntSet
+  alias NxFixed.Test.DSP, as: K
 
   defp t(type, shape \\ {}), do: Nx.template(shape, type)
   defp ddc_args(opts \\ []), do: [{t(:s16), t(:s16)}, t(:u16), t(:u16), t(:s16), opts]
@@ -29,7 +29,7 @@ defmodule ExHdl.DSPWidthCheckTest do
       # the 2 * 32768 * 32767 that plain interval arithmetic assumes.
       assert widest_s32(graph) == 1_518_469_120
 
-      [out_i, out_q, next_phase] = ExHdl.IR.Dataflow.output_ids(graph)
+      [out_i, out_q, next_phase] = NxFixed.Dataflow.output_ids(graph)
       assert IntSet.bounds(graph.nodes[out_i].range) == {-32768, 32767}
       assert IntSet.bounds(graph.nodes[out_q].range) == {-32768, 32767}
       assert graph.nodes[next_phase].range == IntSet.range(0, 65535)
@@ -69,7 +69,7 @@ defmodule ExHdl.DSPWidthCheckTest do
       assert e.message =~ "wrap/2"
     end
 
-    test "ExHdl.DSP.Compiler refuses to run an unsafe kernel" do
+    test "NxFixed.Compiler refuses to run an unsafe kernel" do
       fun = Nx.Defn.jit(&K.ddc_step_no_preshift/4, compiler: DSP.Compiler)
       args = [{Nx.s16(1), Nx.s16(1)}, Nx.u16(0), Nx.u16(0), Nx.s16(1)]
       assert_raise DSP.RangeError, ~r/multiply needs/, fn -> apply(fun, args) end
@@ -100,7 +100,7 @@ defmodule ExHdl.DSPWidthCheckTest do
     end
   end
 
-  # Runs ddc_step vectorised through ExHdl.DSP.Compiler and compares every
+  # Runs ddc_step vectorised through NxFixed.Compiler and compares every
   # element with an arbitrary-precision Elixir model of the same formula.
   defp assert_matches_model(rows) do
     col = fn idx, type -> Nx.tensor(Enum.map(rows, &elem(&1, idx)), type: type) end

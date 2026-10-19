@@ -1,4 +1,4 @@
-defmodule ExHdl.Types.IntSet do
+defmodule NxFixed.IntSet do
   @moduledoc """
   Sets of integers as a set-theoretic type domain.
 
@@ -10,12 +10,11 @@ defmodule ExHdl.Types.IntSet do
   `Module.Types.Descr` stores atoms as finite or cofinite sets.
 
   Besides the set algebra, this module has the arithmetic transfer functions
-  used by `ExHdl.Passes.WidthCheck` (`add/2`, `multiply/2`, ...). They take
+  used by `NxFixed.WidthCheck` (`add/2`, `multiply/2`, ...). They take
   finite sets and return a superset of `{f(x, y) | x in a, y in b}` (exact
   for most ops). Results are kept to at most `max_intervals/0` intervals by
   `widen/2`, which only ever adds values.
   """
-  @behaviour ExHdl.Types.SetAlgebra
 
   import Bitwise
   import Kernel, except: [min: 2, max: 2, abs: 1]
@@ -30,9 +29,7 @@ defmodule ExHdl.Types.IntSet do
 
   # -- constructors -------------------------------------------------------------
 
-  @impl true
   def none, do: []
-  @impl true
   def term, do: [{:neg_inf, :pos_inf}]
   def integer, do: term()
   def non_neg_integer, do: [{0, :pos_inf}]
@@ -58,7 +55,6 @@ defmodule ExHdl.Types.IntSet do
   def of_type({:s, bits}), do: range(-(1 <<< (bits - 1)), (1 <<< (bits - 1)) - 1)
   def of_type({:u, bits}), do: range(0, (1 <<< bits) - 1)
 
-  @impl true
   def leaf({:int, :neg_inf, :pos_inf}), do: integer()
   def leaf({:int, lo, :pos_inf}), do: [{lo, :pos_inf}]
   def leaf({:int, :neg_inf, hi}), do: [{:neg_inf, hi}]
@@ -69,10 +65,8 @@ defmodule ExHdl.Types.IntSet do
 
   # -- set algebra ----------------------------------------------------------------
 
-  @impl true
   def union(a, b), do: (a ++ b) |> Enum.sort_by(&elem(&1, 0), &le/2) |> normalize_sorted()
 
-  @impl true
   def intersection([], _), do: []
   def intersection(_, []), do: []
 
@@ -83,7 +77,6 @@ defmodule ExHdl.Types.IntSet do
     if le(lo, hi), do: [{lo, hi} | tail], else: tail
   end
 
-  @impl true
   def negation(set), do: complement(set, :neg_inf)
 
   defp complement([], from), do: [{from, :pos_inf}]
@@ -93,21 +86,16 @@ defmodule ExHdl.Types.IntSet do
   defp complement_after(_rest, :pos_inf), do: []
   defp complement_after(rest, hi), do: complement(rest, succ(hi))
 
-  @impl true
   def difference(a, b), do: intersection(a, negation(b))
 
-  @impl true
   def empty?(set), do: set == []
 
-  @impl true
   def subtype?(a, b), do: difference(a, b) == []
 
-  @impl true
   def equal?(a, b), do: a == b
 
   def disjoint?(a, b), do: intersection(a, b) == []
 
-  @impl true
   def member?(set, k) when is_integer(k),
     do: Enum.any?(set, fn {lo, hi} -> le(lo, k) and le(k, hi) end)
 
@@ -146,7 +134,6 @@ defmodule ExHdl.Types.IntSet do
   Prints in Elixir type syntax: typespec ranges and the builtin integer
   types where they apply, `lo..+inf` / `-inf..hi` otherwise.
   """
-  @impl true
   def to_quoted_string([]), do: "none()"
 
   def to_quoted_string(set) do

@@ -1,10 +1,10 @@
-defmodule ExHdl.DSP.Primitives do
+defmodule NxFixed.Primitives do
   @moduledoc """
   Bit-exact fixed-point building blocks for `defn`.
 
   Each primitive is plain Nx, so it runs on any Nx backend as the reference
   implementation. Every place where values are allowed to wrap or clamp is an
-  explicit primitive here; `ExHdl.Passes.WidthCheck` rejects any other
+  explicit primitive here; `NxFixed.WidthCheck` rejects any other
   overflow.
   """
   import Nx.Defn
@@ -38,7 +38,7 @@ defmodule ExHdl.DSP.Primitives do
   @doc "Clamps `x` to the range of `type` and converts it."
   deftransform saturate(x, type) do
     type = Nx.Type.normalize!(type)
-    {lo, hi} = ExHdl.Passes.WidthCheck.type_range(type)
+    {lo, hi} = NxFixed.WidthCheck.type_range(type)
     x |> Nx.clip(lo, hi) |> Nx.as_type(type)
   end
 
@@ -46,7 +46,7 @@ defmodule ExHdl.DSP.Primitives do
   `x >> k` rounded to nearest (ties towards +infinity): `(x + 2^(k-1)) >> k`.
   Truncating shifts (`Nx.right_shift/2`) are biased by half an LSB on
   average, which in feedback loops turns into a dead band; this one is not.
-  `x` needs one bit of headroom, which `ExHdl.Passes.WidthCheck` verifies.
+  `x` needs one bit of headroom, which `NxFixed.WidthCheck` verifies.
   """
   deftransform shift_round(x, k) when is_integer(k) and k > 0 do
     x |> Nx.add(1 <<< (k - 1)) |> Nx.right_shift(k)

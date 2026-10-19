@@ -1,4 +1,4 @@
-defmodule ExHdl.Num.Fixed do
+defmodule NxFixed.Fixed do
   @moduledoc """
   A fixed-point value: an integer tensor `t` whose real value is
   `t / 2^frac`. `frac` is known while tracing (it is not a tensor), so every

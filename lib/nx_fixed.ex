@@ -1,8 +1,8 @@
-defmodule ExHdl.DSP do
+defmodule NxFixed do
   @moduledoc """
   Entry point for analysing `defn` kernels.
 
-      ExHdl.DSP.analyze(&MySDR.DSP.ddc_step/4, [
+      NxFixed.analyze(&MySDR.DSP.ddc_step/4, [
         {Nx.template({}, :s16), Nx.template({}, :s16)},
         Nx.template({}, :u16),
         Nx.template({}, :u16),
@@ -12,15 +12,12 @@ defmodule ExHdl.DSP do
   Arguments are passed like to the function itself; tensors may be templates.
   """
 
-  alias ExHdl.IR.Dataflow
-  alias ExHdl.Passes.WidthCheck
+  alias NxFixed.Dataflow
+  alias NxFixed.WidthCheck
 
   defmodule RangeError do
+    @moduledoc "A value can leave its type: the width check found violations."
     defexception [:message, :graph, :violations]
-  end
-
-  defmodule ScheduleError do
-    defexception [:message]
   end
 
   @doc """
@@ -45,100 +42,17 @@ defmodule ExHdl.DSP do
   end
 
   @doc """
-  Analyses a stream kernel `step(..., state, ...) -> {output, next_state}`.
-
-  `opts[:state]` is the index of the state argument in `args`. Runs the
-  width check, then `ExHdl.Passes.Recurrence`. Further options: `:ii`,
-  `:channels`, timing overrides (`:clock_mhz`, `:dsp_latency`, ...), and
-  everything `analyze/3` accepts.
-
-  Returns `{:ok, %ExHdl.IR.Scan{}}` or `{:error, %RangeError{} | %ScheduleError{}}`.
-  """
-  def analyze_scan(fun, args, opts) when is_function(fun) and is_list(args) do
-    state_arg = Keyword.fetch!(opts, :state)
-
-    output = fun |> Nx.Defn.debug_expr() |> apply(args)
-
-    with :ok <- check_scan_shape(output),
-         {:ok, graph} <- analyze_expr(output, opts) do
-      {out_ids, next_ids} = graph.outputs
-      state_indices = param_indices(args, state_arg)
-
-      state_params =
-        for id <- graph.order,
-            graph.nodes[id].op == :parameter,
-            graph.nodes[id].attrs in state_indices,
-            do: id
-
-      with :ok <- check_state_types(args, state_arg, graph, next_ids),
-           {:ok, scan} <-
-             ExHdl.Passes.Recurrence.run(graph, state_params, out_ids, next_ids, opts) do
-        {:ok, scan}
-      else
-        {:error, message} when is_binary(message) -> {:error, %ScheduleError{message: message}}
-        {:error, %ScheduleError{}} = error -> error
-      end
-    end
-  end
-
-  defp check_scan_shape({_output, _next_state}), do: :ok
-
-  defp check_scan_shape(_),
-    do:
-      {:error,
-       %ScheduleError{message: "stream_scan: the step function must return {output, next_state}"}}
-
-  # Nx numbers the tensor leaves of all arguments in order; non-tensor
-  # arguments (keyword options) are not parameters.
-  defp param_indices(args, arg) do
-    offset = args |> Enum.take(arg) |> Enum.map(&leaf_count/1) |> Enum.sum()
-    Enum.to_list(offset..(offset + leaf_count(Enum.at(args, arg)) - 1)//1)
-  end
-
-  # Keyword lists (kernel options) are not parameters; every other argument
-  # is a container of tensors (tuples, ExHdl.Num.Fixed, ...).
-  defp leaf_count(list) when is_list(list), do: 0
-  defp leaf_count(arg), do: length(leaves(arg))
-
-  defp leaves(t) when is_tuple(t), do: t |> Tuple.to_list() |> Enum.flat_map(&leaves/1)
-  defp leaves(n) when is_integer(n), do: [n]
-  defp leaves(arg), do: Nx.Defn.Composite.flatten_list([arg])
-
-  # next_state must have exactly the state's types and shapes.
-  defp check_state_types(args, arg, graph, next_ids) do
-    states = args |> Enum.at(arg) |> leaves() |> Enum.map(&Nx.to_template/1)
-    nexts = next_ids |> leaves() |> Enum.map(&graph.nodes[&1])
-
-    mismatch =
-      length(states) != length(nexts) or
-        Enum.any?(Enum.zip(states, nexts), fn {s, n} -> s.type != n.type or s.shape != n.shape end)
-
-    if mismatch do
-      expected = Enum.map_join(states, ", ", &"#{inspect(&1.type)}#{inspect(&1.shape)}")
-      got = Enum.map_join(nexts, ", ", &"#{inspect(&1.type)}#{inspect(&1.shape)}")
-
-      {:error,
-       %ScheduleError{
-         message:
-           "stream_scan: next_state must match the state exactly; state is #{expected}, next_state is #{got}"
-       }}
-    else
-      :ok
-    end
-  end
-
-  @doc """
   Runs a stream kernel `step(sample, state, params...)` over `samples` on
   the CPU, threading the state from sample to sample. This is the checked
-  Nx reference (`ExHdl.DSP.Compiler`): the kernel is width-checked once
+  Nx reference (`NxFixed.Compiler`): the kernel is width-checked once
   when it is compiled.
 
   `params` are the remaining tensor arguments, constant over the stream.
   Options: `:kernel_opts` (a trailing keyword list for the kernel) plus
-  everything `ExHdl.DSP.Compiler` accepts.
+  everything `NxFixed.Compiler` accepts.
 
   With `compiler: EXLA` (or another Nx compiler) all samples run in one
-  compiled `while` loop (`ExHdl.DSP.ScanLoop`), after the same width check;
+  compiled `while` loop (`NxFixed.ScanLoop`), after the same width check;
   results are bit-identical. `stacked: true` then returns the outputs as
   tensors with the sample index as first axis instead of a list.
 
@@ -152,7 +66,7 @@ defmodule ExHdl.DSP do
     {kernel_opts, opts} = Keyword.pop(opts, :kernel_opts)
     template = &Nx.Defn.Composite.traverse(&1, fn t -> Nx.to_template(Nx.tensor(t)) end)
 
-    # Float reference instances (ExHdl.Num.float/0) are allowed to contain floats.
+    # Float reference instances (NxFixed.Num.float/0) are allowed to contain floats.
     float? =
       [first, initial_state | params]
       |> Nx.Defn.Composite.flatten_list()
@@ -167,7 +81,7 @@ defmodule ExHdl.DSP do
     case Keyword.pop(opts, :compiler) do
       {nil, opts} ->
         {_stacked, opts} = Keyword.pop(opts, :stacked)
-        step = Nx.Defn.compile(fun, templates, Keyword.put(opts, :compiler, ExHdl.DSP.Compiler))
+        step = Nx.Defn.compile(fun, templates, Keyword.put(opts, :compiler, NxFixed.Compiler))
 
         Enum.map_reduce(samples, initial_state, fn sample, state ->
           apply(step, [sample, state | params])
@@ -184,7 +98,7 @@ defmodule ExHdl.DSP do
     opts = [compiler: compiler, kernel_opts: kernel_opts] ++ opts
 
     {outputs, final} =
-      run_scan_stacked(fun, ExHdl.DSP.ScanLoop.stack(samples), initial_state, params, opts)
+      run_scan_stacked(fun, NxFixed.ScanLoop.stack(samples), initial_state, params, opts)
 
     if stacked?, do: {outputs, final}, else: {unstack(outputs, length(samples)), final}
   end
@@ -244,7 +158,7 @@ defmodule ExHdl.DSP do
     end
 
     loop =
-      Nx.Defn.jit(&ExHdl.DSP.ScanLoop.loop/4, Keyword.put(compiler_opts, :compiler, compiler))
+      Nx.Defn.jit(&NxFixed.ScanLoop.loop/4, Keyword.put(compiler_opts, :compiler, compiler))
 
     loop.(move.(samples), move.(initial_state), move.(List.to_tuple(params)),
       step: fun,

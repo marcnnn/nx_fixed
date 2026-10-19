@@ -1,11 +1,11 @@
-defmodule ExHdl.DSP.ScanLoop do
+defmodule NxFixed.ScanLoop do
   @moduledoc """
   Runs a stream kernel `step(sample, state, params...) -> {output, next_state}`
   over a whole block of samples inside one compiled `while` loop.
 
   The step function is used unchanged; with a compiler such as EXLA the loop
   body is fused, which is far faster than calling a compiled step per sample.
-  Samples and outputs are containers (tuples, `ExHdl.Num.Fixed`, ...) whose
+  Samples and outputs are containers (tuples, `NxFixed.Fixed`, ...) whose
   tensors carry the sample index as their first axis.
   """
   import Nx.Defn

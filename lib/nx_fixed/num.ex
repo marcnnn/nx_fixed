@@ -1,4 +1,4 @@
-defmodule ExHdl.Num do
+defmodule NxFixed.Num do
   @moduledoc """
   Number-format-generic arithmetic, so a DSP algorithm is written once and
   instantiated as float (the reference) or as fixed point (CPU/FPGA).
@@ -7,7 +7,7 @@ defmodule ExHdl.Num do
 
     * `float/0` - real values are `f32` tensors.
     * `q/3`, e.g. `q(16, 15, rounding: :nearest, lut_bits: 10)` - real values
-      are `ExHdl.Num.Fixed` structs: an integer tensor plus its binary point.
+      are `NxFixed.Fixed` structs: an integer tensor plus its binary point.
 
   Complex values are `{re, im}` tuples of real values in either format.
 
@@ -19,7 +19,7 @@ defmodule ExHdl.Num do
   only lost where the algorithm says so: `rescale/2` moves the binary point
   (rounding per format) and `quantize/2` additionally saturates to the
   format's width. The FPGA does not use the containers; it sizes every
-  signal from `ExHdl.Passes.WidthCheck`.
+  signal from `NxFixed.WidthCheck`.
 
   Phase words (NCO phase accumulators) are plain unsigned integers in both
   instances: the recurrence is identical, only sin/cos differ.
@@ -27,11 +27,11 @@ defmodule ExHdl.Num do
   import Nx.Defn
   import Bitwise
 
-  alias ExHdl.DSP.Primitives, as: P
-  alias ExHdl.Num.Fixed
+  alias NxFixed.Primitives, as: P
+  alias NxFixed.Fixed
 
   defmodule Format do
-    @moduledoc "A number format, see `ExHdl.Num`."
+    @moduledoc "A number format, see `NxFixed.Num`."
     defstruct kind: :float, bits: nil, frac: nil, rounding: :nearest, lut_bits: 10
 
     @type t :: %__MODULE__{

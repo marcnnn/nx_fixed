@@ -1,13 +1,13 @@
-defmodule ExHdl.Passes.WidthCheck do
+defmodule NxFixed.WidthCheck do
   @moduledoc """
-  Integer range analysis over an `ExHdl.IR.Dataflow` graph.
+  Integer range analysis over an `NxFixed.Dataflow` graph.
 
-  Every node gets the set of values it can take, as an `ExHdl.Types.IntSet`
+  Every node gets the set of values it can take, as an `NxFixed.IntSet`
   (a set-theoretic integer type: a union of intervals). A node whose set is
   not a subtype of its Nx type is a violation: the Nx reference and the CPU
   backend would wrap there, while the FPGA (which sizes signals from these
   sets) would not, so the backends could disagree. Overflow is only allowed
-  where it is written down, via `ExHdl.DSP.Primitives.wrap/2`.
+  where it is written down, via `NxFixed.Primitives.wrap/2`.
 
   The analysis runs in three stages:
 
@@ -24,8 +24,8 @@ defmodule ExHdl.Passes.WidthCheck do
   """
 
   import Bitwise
-  alias ExHdl.IR.Dataflow
-  alias ExHdl.Types.IntSet
+  alias NxFixed.Dataflow
+  alias NxFixed.IntSet
 
   defmodule Violation do
     @moduledoc "A place where values may not fit the declared type. `range` is `{min, max}`."
@@ -68,7 +68,7 @@ defmodule ExHdl.Passes.WidthCheck do
 
     violations = check(graph, param_ranges)
 
-    # A float instance (ExHdl.Num.float/0) is a reference: its float nodes are
+    # A float instance (NxFixed.Num.float/0) is a reference: its float nodes are
     # fine, only its integer parts (phase words, ...) are checked.
     violations =
       if Keyword.get(opts, :allow_float, false),

@@ -1,4 +1,4 @@
-defmodule ExHdl.IR.Dataflow do
+defmodule NxFixed.Dataflow do
   @moduledoc """
   Backend-independent dataflow graph built from a traced `Nx.Defn.Expr`.
 
@@ -11,7 +11,7 @@ defmodule ExHdl.IR.Dataflow do
     @moduledoc """
     One operation. `inputs` are node ids, `attrs` holds non-tensor arguments
     (parameter index, constant value, constant tensor, ...). `range` is filled
-    in by `ExHdl.Passes.WidthCheck`.
+    in by `NxFixed.WidthCheck`.
     """
     defstruct [:id, :op, :inputs, :attrs, :type, :shape, :range]
   end
@@ -103,7 +103,7 @@ defmodule ExHdl.IR.Dataflow do
 
   defp convert_container(%Nx.Tensor{} = t, state), do: convert(t, state)
 
-  # Other containers (e.g. ExHdl.Num.Fixed): their tensors, as a tuple.
+  # Other containers (e.g. NxFixed.Fixed): their tensors, as a tuple.
   defp convert_container(container, state) do
     [container] |> Nx.Defn.Composite.flatten_list() |> List.to_tuple() |> convert_container(state)
   end
@@ -143,7 +143,7 @@ defmodule ExHdl.IR.Dataflow do
 
   defp convert_op(:slice, [x, starts, lengths, strides], t, key, state) do
     unless Enum.all?(starts, &is_integer/1),
-      do: raise(ArgumentError, "ExHdl supports Nx.slice only with constant start indices")
+      do: raise(ArgumentError, "NxFixed supports Nx.slice only with constant start indices")
 
     {id, state} = convert(x, state)
     add(state, key, :slice, [id], {starts, lengths, strides}, t)
@@ -151,7 +151,7 @@ defmodule ExHdl.IR.Dataflow do
 
   defp convert_op(:dot, [a, contract_a, batch_a, b, contract_b, batch_b], t, key, state) do
     # The range rule assumes one sum of products per output element.
-    if batch_a != [], do: raise(ArgumentError, "ExHdl does not support batched Nx.dot yet")
+    if batch_a != [], do: raise(ArgumentError, "NxFixed does not support batched Nx.dot yet")
 
     {a_id, state} = convert(a, state)
     {b_id, state} = convert(b, state)
@@ -218,7 +218,7 @@ defmodule ExHdl.IR.Dataflow do
 
   defp convert_op(op, _args, t, _key, _state) do
     raise ArgumentError,
-          "ExHdl does not support Nx operation #{inspect(op)} (#{inspect(t.type)}#{inspect(t.shape)}) yet"
+          "NxFixed does not support Nx operation #{inspect(op)} (#{inspect(t.type)}#{inspect(t.shape)}) yet"
   end
 
   defp view(op, x, attrs, t, key, state) do
