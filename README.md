@@ -15,8 +15,8 @@ Fixed-point arithmetic for Nx with proven ranges.
   stream kernels `step(sample, state, params) -> {output, next_state}` on
   the CPU, width-checked once, in one compiled loop with EXLA.
 
-Used by [nx_simd](../nx_simd) (native code for integer graphs),
-[ex_sdr](../ex_sdr) (radio building blocks) and [ex_hdl](../exhdl)
+Used by [nx_simd](https://github.com/marcnnn/nx_simd) (native code for integer graphs),
+[ex_sdr](https://github.com/marcnnn/ex_sdr) (radio building blocks) and [ex_hdl](https://github.com/marcnnn/ex_hdl)
 (hardware generation).
 
 ```elixir
